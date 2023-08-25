@@ -40,8 +40,7 @@ async def inputstream_generator():
 	with stream:
 		while True:
 			indata, status = await q_in.get()
-			yield indata, status
-			
+			yield indata, status		
 		
 async def process_audio_buffer():
 	global global_ndarray
