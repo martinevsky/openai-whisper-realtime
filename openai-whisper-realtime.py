@@ -11,7 +11,6 @@ import asyncio
 import queue
 import sys
 
-
 # SETTINGS
 MODEL_TYPE="medium.en"
 # the model used for transcription. https://github.com/openai/whisper#available-models-and-languages
