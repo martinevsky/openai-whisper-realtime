@@ -3,13 +3,17 @@ import numpy as np
 
 import whisper
 
+from fastapi import FastAPI, WebSocket
+from fastapi.responses import FileResponse
+import uvicorn
+
 import asyncio
 import queue
 import sys
 
 
 # SETTINGS
-MODEL_TYPE="base.en"
+MODEL_TYPE="medium.en"
 # the model used for transcription. https://github.com/openai/whisper#available-models-and-languages
 LANGUAGE="English"
 # pre-set the language to avoid autodetection
@@ -20,9 +24,10 @@ SILENCE_THRESHOLD=400
 SILENCE_RATIO=100
 # number of samples in one buffer that are allowed to be higher than threshold
 
-
 global_ndarray = None
-model = whisper.load_model(MODEL_TYPE)
+model = whisper.load_model(name=MODEL_TYPE, device="cuda", in_memory=True)
+
+websocket_connections = set()
 
 async def inputstream_generator():
 	"""Generator that yields blocks of input data as NumPy arrays."""
@@ -63,25 +68,34 @@ async def process_audio_buffer():
 			indata_transformed = local_ndarray.flatten().astype(np.float32) / 32768.0
 			result = model.transcribe(indata_transformed, language=LANGUAGE)
 			print(result["text"])
+			for connection in websocket_connections:
+				await connection.send_text(result["text"])
 			
 		del local_ndarray
 		del indata_flattened
 
+app = FastAPI()
 
-async def main():
-	print('\nActivating wire ...\n')
-	audio_task = asyncio.create_task(process_audio_buffer())
-	while True:
-		await asyncio.sleep(1)
-	audio_task.cancel()
-	try:
-		await audio_task
-	except asyncio.CancelledError:
-		print('\nwire was cancelled')
+@app.get("/")
+def read_root():
+    return FileResponse("static/index.html")
 
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    websocket_connections.add(websocket)
+    try:
+        while True:
+            await websocket.receive_text()
+    except:
+        pass
+    finally:
+        websocket_connections.remove(websocket)
+
+@app.on_event("startup")
+async def startup_event():
+    print('\nActivating wire ...\n')
+    audio_task = asyncio.create_task(process_audio_buffer())
 
 if __name__ == "__main__":
-	try:
-		asyncio.run(main())
-	except KeyboardInterrupt:
-		sys.exit('\nInterrupted by user')
+	uvicorn.run(app, host="localhost", port=8000)

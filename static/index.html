@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Main Page</title>
+    <style>
+        body {
+            background-color: #aaff00;
+            color: white;
+            font-family: Arial, sans-serif;
+            font-size: 300%;
+        }
+        ul {
+            list-style-type: none; /* Removes bullet points */
+            padding: 0;
+        }
+    </style>    
+</head>
+<body>
+    <ul id="messages"></ul>
+    <script>
+        var ws = new WebSocket("ws://localhost:8000/ws");
+        var messagesList = document.getElementById("messages");
+        var messages = [];
+        ws.onmessage = function(event) {
+            messages.push(event.data);
+            if (messages.length > 10) {
+                messages.shift(); // Remove the oldest message if there are more than 10
+            }
+            messagesList.innerHTML = "";
+            messages.forEach(function(message) {
+                var li = document.createElement("li");
+                li.appendChild(document.createTextNode(message));
+                messagesList.appendChild(li);
+            });
+        };
+    </script>
+</body>
+</html>
